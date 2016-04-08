@@ -62,19 +62,17 @@ func main() {
 	var fileCount int
 	for dir, fi := range fis {
 		for _, fi := range fi {
+			if fi.IsDir() {
+				continue
+			}
 			f, err := os.Open(dir + fi.Name())
 			if err != nil {
 				log.Fatalln(err)
 			}
 
-			if fi.IsDir() {
-				continue
-			}
 			fmt.Println(dir + fi.Name())
 			d, err := audio.NewDecoder(f)
-			if err := f.Close(); err != nil {
-				log.Fatal(err)
-			}
+			f.Close()
 			if err != nil {
 				log.Println("audio error:", err)
 				continue
@@ -95,6 +93,7 @@ func main() {
 			}
 			fmt.Println()
 			fileCount++
+			d.Destroy()
 		}
 	}
 	fmt.Println("Filecount", fileCount)
