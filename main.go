@@ -6,6 +6,7 @@ import (
 	"image"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/Soreil/audio"
 )
@@ -56,7 +57,7 @@ func main() {
 			log.Fatalln(err)
 		}
 	} else {
-		fis[os.Args[1]] = []os.FileInfo{fi}
+		fis[os.Args[1][:strings.Index(os.Args[1], fi.Name())]] = []os.FileInfo{fi}
 	}
 
 	var fileCount int
