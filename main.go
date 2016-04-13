@@ -63,39 +63,45 @@ func main() {
 	var fileCount int
 	for dir, fi := range fis {
 		for _, fi := range fi {
-			if fi.IsDir() {
-				continue
-			}
-			f, err := os.Open(dir + fi.Name())
+			s, err := parse(fi, dir)
 			if err != nil {
-				log.Fatalln(err)
+				log.Println(err)
+			} else {
+				fmt.Println(s)
 			}
-
-			fmt.Println(dir + fi.Name())
-			d, err := audio.NewDecoder(f)
-			f.Close()
-			if err != nil {
-				log.Println("audio error:", err)
-				continue
-			}
-			fmt.Println(d.AudioFormat())
-			fmt.Println(d.Bitrate() / 1024)
-			fmt.Println(d.Duration())
-
-			if d.HasImage() {
-				fmt.Println("Has an image")
-				//_, img, err := imager.Thumbnail(bytes.NewBuffer(d.Picture()), imager.Sharp)
-				_, img, err := image.DecodeConfig(bytes.NewBuffer(d.Picture()))
-				if err != nil {
-					log.Println(err)
-				} else {
-					fmt.Println(img)
-				}
-			}
-			fmt.Println()
-			fileCount++
-			d.Destroy()
 		}
 	}
 	fmt.Println("Filecount", fileCount)
+}
+
+func parse(fi os.FileInfo, dir string) (string, error) {
+	var out string
+
+	out += fmt.Sprintln(dir + fi.Name())
+	f, err := os.Open(dir + fi.Name())
+	if err != nil {
+		return out, err
+	}
+	defer f.Close()
+
+	d, err := audio.NewDecoder(f)
+	if err != nil {
+		return out, err
+	}
+	defer d.Destroy()
+
+	out += fmt.Sprintln(d.AudioFormat())
+	out += fmt.Sprintln(d.Bitrate() / 1024)
+	out += fmt.Sprintln(d.Duration())
+
+	if d.HasImage() {
+		out += fmt.Sprintln("Has an image")
+		//_, img, err := imager.Thumbnail(bytes.NewBuffer(d.Picture()), imager.Sharp)
+		_, img, err := image.DecodeConfig(bytes.NewBuffer(d.Picture()))
+		if err != nil {
+			return out, err
+		}
+		out += fmt.Sprintln(img)
+	}
+	return out, nil
 }
