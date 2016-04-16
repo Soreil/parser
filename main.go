@@ -4,7 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"strings"
 
@@ -42,6 +47,10 @@ func readFiles(name string) (map[string][]os.FileInfo, error) {
 }
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
 	if len(os.Args) <= 1 {
 		log.Fatalf("Usage:%s MEDIAPATH\n", os.Args[0])
 	}
@@ -63,12 +72,16 @@ func main() {
 	var fileCount int
 	for dir, fi := range fis {
 		for _, fi := range fi {
+			if fi.IsDir() {
+				continue
+			}
 			s, err := parse(fi, dir)
 			if err != nil {
 				log.Println(err)
 			} else {
 				fmt.Println(s)
 			}
+			fileCount++
 		}
 	}
 	fmt.Println("Filecount", fileCount)
@@ -82,7 +95,11 @@ func parse(fi os.FileInfo, dir string) (string, error) {
 	if err != nil {
 		return out, err
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}()
 
 	d, err := audio.NewDecoder(f)
 	if err != nil {
