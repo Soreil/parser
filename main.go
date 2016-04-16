@@ -2,96 +2,53 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
 	"log"
-	"net/http"
-	_ "net/http/pprof"
 	"os"
-	"strings"
+	"path/filepath"
 
 	"github.com/Soreil/audio"
 )
 
-func readFiles(name string) (map[string][]os.FileInfo, error) {
-	if name[len(name)-1] != os.PathSeparator {
-		name += string(os.PathSeparator)
-	}
-
-	f, err := os.Open(name)
-	if err != nil {
-		return nil, err
-	}
-	fis, err := f.Readdir(0)
-	if err != nil {
-		return nil, err
-	}
-	dirfis := map[string][]os.FileInfo{
-		name: fis,
-	}
-	for _, fi := range fis {
-		if fi.IsDir() {
-			newfis, err := readFiles(name + fi.Name())
-			if err != nil {
-				return nil, err
-			}
-			for k, v := range newfis {
-				dirfis[k] = append(dirfis[k], v...)
-			}
-		}
-	}
-	return dirfis, nil
-}
+var exts map[string]int
 
 func main() {
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
-
 	if len(os.Args) <= 1 {
 		log.Fatalf("Usage:%s MEDIAPATH\n", os.Args[0])
 	}
 
-	fi, err := os.Lstat(os.Args[1])
+	_, err := os.Lstat(os.Args[1])
 	if err != nil {
 		log.Fatalln(err)
 	}
-	fis := make(map[string][]os.FileInfo)
-	if fi.IsDir() {
-		fis, err = readFiles(os.Args[1])
-		if err != nil {
-			log.Fatalln(err)
-		}
-	} else {
-		fis[os.Args[1][:strings.Index(os.Args[1], fi.Name())]] = []os.FileInfo{fi}
-	}
 
-	var fileCount int
-	for dir, fi := range fis {
-		for _, fi := range fi {
-			if fi.IsDir() {
-				continue
-			}
-			s, err := parse(fi, dir)
-			if err != nil {
-				log.Println(err)
-			} else {
-				fmt.Println(s)
-			}
-			fileCount++
+	if err := filepath.Walk(os.Args[1], func(url string, info os.FileInfo, err error) error {
+		if info == nil {
+			return errors.New("Can't open a nil file")
 		}
+		if info.IsDir() {
+			return nil
+		}
+		out, err := parse(url)
+		if err != nil {
+			log.Println(err)
+			return nil
+		}
+		fmt.Println(out)
+		return nil
+	}); err != nil {
+		log.Fatalln(err)
 	}
-	fmt.Println("Filecount", fileCount)
 }
 
-func parse(fi os.FileInfo, dir string) (string, error) {
+func parse(fileName string) (string, error) {
 	var out string
-
-	out += fmt.Sprintln(dir + fi.Name())
-	f, err := os.Open(dir + fi.Name())
+	f, err := os.Open(fileName)
 	if err != nil {
 		return out, err
 	}
@@ -107,6 +64,7 @@ func parse(fi os.FileInfo, dir string) (string, error) {
 	}
 	defer d.Destroy()
 
+	out += fmt.Sprintln(fileName)
 	out += fmt.Sprintln(d.AudioFormat())
 	out += fmt.Sprintln(d.Bitrate() / 1024)
 	out += fmt.Sprintln(d.Duration())
